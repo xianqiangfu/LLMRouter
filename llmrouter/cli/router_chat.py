@@ -306,6 +306,7 @@ footer { display: none !important; }
 """
 
 def _safe_unlink(path: str) -> None:
+    """安全删除文件，如果文件不存在则忽略错误"""
     try:
         os.unlink(path)
     except FileNotFoundError:
@@ -313,12 +314,23 @@ def _safe_unlink(path: str) -> None:
 
 
 def _normalize_chat_history(history: Any) -> list[tuple[str, str]]:
+    """
+    将聊天历史规范化为标准格式
+
+    支持输入格式：
+    - [(user, assistant), ...] 元组列表
+    - [{"role": "user", "content": "..."}, {"role": "assistant", "content": "..."}, ...] 字典列表
+
+    Returns:
+        标准化的聊天历史列表 [(user, assistant), ...]
+    """
     if not history:
         return []
 
     if isinstance(history, (list, tuple)) and history:
         first = history[0]
         if isinstance(first, (list, tuple)) and len(first) == 2:
+            # 输入格式为元组列表
             normalized: list[tuple[str, str]] = []
             for human, assistant in history:
                 human_text = "" if human is None else str(human)
@@ -327,6 +339,7 @@ def _normalize_chat_history(history: Any) -> list[tuple[str, str]]:
             return normalized
 
         if isinstance(first, dict) and "role" in first:
+            # 输入格式为字典列表（OpenAI 风格）
             normalized: list[tuple[str, str]] = []
             current_user: Optional[str] = None
             for msg in history:
@@ -343,6 +356,7 @@ def _normalize_chat_history(history: Any) -> list[tuple[str, str]]:
                     else:
                         normalized.append((current_user, content_text))
                         current_user = None
+            # 处理最后一条未配对的用户消息
             if current_user is not None:
                 normalized.append((current_user, ""))
             return normalized
@@ -420,137 +434,137 @@ UNSUPPORTED_ROUTERS = {}
 
 def prepare_query_full_context(message: str, history: list) -> str:
     """
-    Prepare query for Full Context Mode: combine all history + current query.
-    
+    为完整上下文模式准备查询：将所有历史记录与当前查询合并
+
     Args:
-        message: Current user message
-        history: Chat history as list of (user, assistant) tuples
-        
+        message: 当前用户消息
+        history: 聊天历史，(user, assistant) 元组列表
+
     Returns:
-        Combined query string
+        合并后的查询字符串
     """
-    # Build full context from history
+    # 从历史记录构建完整上下文
     context_parts = []
     for human, assistant in _normalize_chat_history(history):
         context_parts.append(f"Previous Query: {human}")
         context_parts.append(f"Previous Response: {assistant}")
-    
-    # Add current query
+
+    # 添加当前查询
     context_parts.append(f"Current Query: {message}")
-    
-    # Combine into single query
+
+    # 合并为单个查询
     combined_query = "\n\n".join(context_parts)
     return combined_query
 
 
 def prepare_query_current_only(message: str, history: list) -> str:
     """
-    Prepare query for Current Query Mode: only the current query.
-    
+    为仅当前查询模式准备查询：只使用当前查询
+
     Args:
-        message: Current user message
-        history: Chat history (unused in this mode)
-        
+        message: 当前用户消息
+        history: 聊天历史（在此模式下不使用）
+
     Returns:
-        Current query string
+        当前查询字符串
     """
     return message
 
 
 def prepare_query_retrieval(message: str, history: list, top_k: int = 3) -> str:
     """
-    Prepare query for Retrieval Mode: find top-k similar historical queries.
-    
+    为检索模式准备查询：查找 top-k 个相似的历史查询
+
     Args:
-        message: Current user message
-        history: Chat history as list of (user, assistant) tuples
-        top_k: Number of similar queries to retrieve
-        
+        message: 当前用户消息
+        history: 聊天历史，(user, assistant) 元组列表
+        top_k: 要检索的相似查询数量
+
     Returns:
-        Combined query string with retrieved context
+        包含检索上下文的合并查询字符串
     """
     history_pairs = _normalize_chat_history(history)
     if not history_pairs:
-        # No history, just return current query
+        # 没有历史记录，只返回当前查询
         return message
-    
+
     try:
-        # Get embedding for current query
+        # 获取当前查询的嵌入向量
         current_embedding = get_longformer_embedding(message)
         if isinstance(current_embedding, torch.Tensor):
             current_embedding = current_embedding.numpy()
-        
-        # Ensure current_embedding is 1D
+
+        # 确保 current_embedding 是一维的
         if len(current_embedding.shape) > 1:
             current_embedding = current_embedding.flatten()
-        
-        # Get embeddings for all historical queries
+
+        # 获取所有历史查询的嵌入向量
         historical_queries = [human for human, _ in history_pairs]
         historical_responses = [assistant for _, assistant in history_pairs]
-        
+
         if not historical_queries:
             return message
-        
-        # Compute embeddings for historical queries
+
+        # 计算历史查询的嵌入向量
         historical_embeddings = get_longformer_embedding(historical_queries)
         if isinstance(historical_embeddings, torch.Tensor):
             historical_embeddings = historical_embeddings.numpy()
-        
-        # Handle case where historical_embeddings might be 1D (single query)
+
+        # 处理 historical_embeddings 可能是一维的情况（单个查询）
         if len(historical_embeddings.shape) == 1:
             historical_embeddings = historical_embeddings.reshape(1, -1)
-        
-        # Compute cosine similarity
-        # Normalize embeddings
+
+        # 计算余弦相似度
+        # 归一化嵌入向量
         current_norm = current_embedding / (np.linalg.norm(current_embedding) + 1e-8)
         historical_norms = historical_embeddings / (np.linalg.norm(historical_embeddings, axis=1, keepdims=True) + 1e-8)
-        
-        # Compute similarities: (num_queries, embedding_dim) @ (embedding_dim,) -> (num_queries,)
+
+        # 计算相似度: (num_queries, embedding_dim) @ (embedding_dim,) -> (num_queries,)
         similarities = np.dot(historical_norms, current_norm)
-        
-        # Ensure similarities is 1D array
+
+        # 确保 similarities 是一维数组
         if similarities.ndim == 0:
             similarities = np.array([similarities])
         elif len(similarities.shape) > 1:
             similarities = similarities.flatten()
-        
-        # Get top-k indices (limit to available history)
+
+        # 获取 top-k 索引（限制在可用历史记录数量内）
         actual_top_k = min(top_k, len(historical_queries))
         top_k_indices = np.argsort(similarities)[-actual_top_k:][::-1]
-        
-        # Build retrieved context
+
+        # 构建检索的上下文
         retrieved_parts = []
         for idx in top_k_indices:
             retrieved_parts.append(f"Similar Query: {historical_queries[idx]}")
             retrieved_parts.append(f"Response: {historical_responses[idx]}")
-        
-        # Combine retrieved context with current query
+
+        # 将检索的上下文与当前查询合并
         retrieved_context = "\n\n".join(retrieved_parts)
         combined_query = f"{retrieved_context}\n\nCurrent Query: {message}"
-        
+
         return combined_query
-        
+
     except Exception as e:
-        # Fallback to current query only if retrieval fails
+        # 如果检索失败，回退到仅使用当前查询
         print(f"Warning: Retrieval mode failed, falling back to current query only: {e}")
         return message
 
 
 def prepare_query_by_mode(message: str, history: list, mode: str, top_k: int = 3) -> str:
     """
-    Prepare query based on the selected mode.
-    
+    根据选择的模式准备查询
+
     Args:
-        message: Current user message
-        history: Chat history as list of (user, assistant) tuples
-        mode: One of "full_context", "current_only", "retrieval"
-        top_k: Number of similar queries for retrieval mode
-        
+        message: 当前用户消息
+        history: 聊天历史，(user, assistant) 元组列表
+        mode: 以下之一："full_context"、"current_only"、"retrieval"
+        top_k: 检索模式中相似查询的数量
+
     Returns:
-        Prepared query string
+        准备好的查询字符串
     """
     mode_lower = mode.lower()
-    
+
     if mode_lower == "full_context" or mode_lower == "full":
         return prepare_query_full_context(message, history)
     elif mode_lower == "current_only" or mode_lower == "current":
@@ -558,69 +572,69 @@ def prepare_query_by_mode(message: str, history: list, mode: str, top_k: int = 3
     elif mode_lower == "retrieval" or mode_lower == "retrieve":
         return prepare_query_retrieval(message, history, top_k)
     else:
-        # Default to current_only if mode is unknown
+        # 如果模式未知，默认使用 current_only
         print(f"Warning: Unknown mode '{mode}', defaulting to 'current_only'")
         return prepare_query_current_only(message, history)
 
 
 def load_router(router_name: str, config_path: str, load_model_path: Optional[str] = None):
     """
-    Load a router instance based on router name and config.
-    
+    根据路由器名称和配置加载路由器实例
+
     Args:
-        router_name: Name of the router method (e.g., "knnrouter", "llmmultiroundrouter")
-        config_path: Path to YAML configuration file
-        load_model_path: Optional path to override model_path.load_model_path in config
-        
+        router_name: 路由器方法名称（如 "knnrouter"、"llmmultiroundrouter"）
+        config_path: YAML 配置文件路径
+        load_model_path: 可选路径，用于覆盖配置文件中的 model_path.load_model_path
+
     Returns:
-        Router instance
+        路由器实例
     """
     router_name_lower = router_name.lower()
-    
-    # Check if router is unsupported
+
+    # 检查路由器是否不支持聊天界面
     if router_name_lower in UNSUPPORTED_ROUTERS:
         raise ValueError(
             f"Router '{router_name}' is not supported for chat interface. "
             f"Supported routers: {list(ROUTER_REGISTRY.keys())}"
         )
-    
+
     if router_name_lower not in ROUTER_REGISTRY:
         raise ValueError(
             f"Unknown router: {router_name}. Available routers: {list(ROUTER_REGISTRY.keys())}"
         )
-    
+
     router_class = ROUTER_REGISTRY[router_name_lower]
-    
-    # Override model path in config if provided
+
+    # 如果提供了自定义模型路径，覆盖配置文件中的模型路径
     if load_model_path:
-        # Read config, modify, write to temp file
+        # 读取配置、修改、写入临时文件
         with open(config_path, "r", encoding="utf-8") as f:
             config = yaml.safe_load(f) or {}
-        
+
         if "model_path" not in config:
             config["model_path"] = {}
         config["model_path"]["load_model_path"] = load_model_path
-        
-        # Write to temp config file
+
+        # 写入临时配置文件
         import tempfile
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False, encoding="utf-8") as temp_config:
             yaml.safe_dump(config, temp_config)
             config_path = temp_config.name
         atexit.register(_safe_unlink, config_path)
-    
-    # Initialize router
-    # Note: RouterR1 might need special handling, but test shows it can be initialized with just yaml_path
+
+    # 初始化路由器
+    # 注意：RouterR1 可能需要特殊处理，但测试表明它可以仅使用 yaml_path 进行初始化
     try:
         router = router_class(yaml_path=config_path)
     except TypeError as e:
-        # If initialization fails, it might need additional parameters
+        # 如果初始化失败，可能需要额外的初始化参数
         if "required positional argument" in str(e) or "missing" in str(e).lower():
             raise ValueError(
                 f"Router '{router_name}' requires additional initialization parameters. "
                 f"Error: {str(e)}"
             ) from e
         raise
-    
+
     return router
 
 
@@ -634,191 +648,191 @@ def predict(
     top_k: int = 3,
 ):
     """
-    Predict response using the router.
-    
+    使用路由器预测响应
+
     Args:
-        message: User message
-        history: Chat history as list of (user, assistant) tuples
-        router_instance: Loaded router instance
-        router_name: Router method name
-        temperature: Temperature for generation (if applicable)
-        mode: Query mode - "full_context", "current_only", or "retrieval"
-        top_k: Number of similar queries for retrieval mode
-        
+        message: 用户消息
+        history: 聊天历史，(user, assistant) 元组列表
+        router_instance: 已加载的路由器实例
+        router_name: 路由器方法名称
+        temperature: 生成温度参数（如果适用）
+        mode: 查询模式 - "full_context"、"current_only" 或 "retrieval"
+        top_k: 检索模式中相似查询的数量
+
     Returns:
-        Generated response text (string)
+        生成的响应文本（字符串）
     """
     router_name_lower = router_name.lower()
     history_pairs = _normalize_chat_history(history)
-     
-    # Prepare query based on mode
+
+    # 根据模式准备查询
     query_for_router = prepare_query_by_mode(message, history_pairs, mode, top_k)
 
-    # Check if router is a multi-round router (full pipeline in route_single)
+    # 检查路由器是否为多轮路由器（在 route_single 中执行完整流程）
     if router_name_lower in MULTI_ROUND_ROUTERS:
-        # Multi-round routers do full pipeline: decompose + route + execute + aggregate
-        # For chat mode, just pass the query string and get response back
+        # 多轮路由器执行完整流程：分解 + 路由 + 执行 + 聚合
+        # 对于聊天模式，只需传入查询字符串并获取响应
         try:
-            # Call route_single with simple query string for chat interaction
+            # 使用简单的查询字符串调用 route_single 进行聊天交互
             result = router_instance.route_single(query_for_router)
-            # Multi-round routers return response directly
+            # 多轮路由器直接返回响应
             return result
         except Exception as e:
             import traceback
             return f"Error: {str(e)}\n{traceback.format_exc()}"
-    
-    # Handle RouterR1 specially (requires model_id, api_base, api_key)
+
+    # 特殊处理 RouterR1（需要 model_id、api_base、api_key）
     if router_name_lower in ROUTERS_REQUIRING_SPECIAL_ARGS:
         try:
-            # Get required parameters from config
+            # 从配置中获取必需参数
             cfg = getattr(router_instance, "cfg", {}) or {}
             hparam = cfg.get("hparam", {}) or {}
             api_base = hparam.get("api_base") or getattr(router_instance, "api_base", None)
             api_key = hparam.get("api_key") or getattr(router_instance, "api_key", None)
-             
+
             if not api_key or not api_base:
                 return "Error: RouterR1 requires api_key and api_base in yaml config"
-             
+
             result = router_instance.route_single({"query": query_for_router})
             return result
-             
+
         except Exception as e:
             return f"Error with RouterR1: {str(e)}"
-    
-    # Otherwise, use route_single to get routing decision, then call model
+
+    # 否则，使用 route_single 获取路由决策，然后调用模型
     try:
-        # Route the query - use the prepared query based on mode
+        # 执行查询路由 - 使用基于模式准备的查询
         query_input = {"query": query_for_router}
 
-        # For GMTRouter, add conversation history for multi-turn personalization
+        # 对于 GMTRouter，添加对话历史以进行多轮个性化
         if router_name_lower in ROUTERS_WITH_CONVERSATION_HISTORY:
-            # Convert history to conversation_history format
+            # 将历史记录转换为 conversation_history 格式
             conversation_history = []
             for user_msg, assistant_msg in history_pairs:
                 conversation_history.append({
                     "role": "user",
                     "content": user_msg
                 })
-                if assistant_msg:  # May be None for last turn
+                if assistant_msg:  # 最后一轮可能为 None
                     conversation_history.append({
                         "role": "assistant",
                         "content": assistant_msg
                     })
 
             query_input.update({
-                "query_text": message,  # Original message
-                "user_id": "chat_user",  # Default chat user (could be customized)
+                "query_text": message,  # 原始消息
+                "user_id": "chat_user",  # 默认聊天用户（可自定义）
                 "session_id": "chat_session",
                 "turn": len(history_pairs) + 1,
                 "conversation_history": conversation_history
             })
 
         routing_result = router_instance.route_single(query_input)
-        
-        # Extract model name from routing result
-        # DCRouter returns "predicted_llm", others return "model_name"
+
+        # 从路由结果中提取模型名称
+        # DCRouter 返回 "predicted_llm"，其他路由器返回 "model_name"
         model_name = (
-            routing_result.get("model_name") 
+            routing_result.get("model_name")
             or routing_result.get("predicted_llm")
             or routing_result.get("predicted_llm_name")
         )
-        
+
         if not model_name:
             return f"Error: Router did not return a model name. Routing result: {routing_result}"
-        
-        # Get API endpoint and model name from llm_data if available
-        # The router returns the model key, but we need the full model path for the API
-        api_model_name = model_name  # Default to model_name
+
+        # 从 llm_data 获取 API 端点和模型名称（如果可用）
+        # 路由器返回模型键，但我们需要完整的模型路径用于 API
+        api_model_name = model_name  # 默认使用 model_name
         api_endpoint = None
         service = None
-        
+
         if hasattr(router_instance, 'llm_data') and router_instance.llm_data:
             if model_name in router_instance.llm_data:
-                # Use the "model" field from llm_data which contains the full API path
+                # 使用 llm_data 中的 "model" 字段，它包含完整的 API 路径
                 api_model_name = router_instance.llm_data[model_name].get("model", model_name)
-                # Get API endpoint from llm_data, fallback to router config
+                # 从 llm_data 获取 API 端点，如果不存在则回退到路由器配置
                 api_endpoint = router_instance.llm_data[model_name].get(
                     "api_endpoint",
                     router_instance.cfg.get("api_endpoint")
                 )
-                # Get service field for service-specific API key selection
+                # 获取 service 字段用于服务特定的 API 密钥选择
                 service = router_instance.llm_data[model_name].get("service")
             else:
-                # If model_name not found, try to find it by matching model field
+                # 如果未找到 model_name，尝试通过匹配 model 字段来查找
                 for key, value in router_instance.llm_data.items():
                     if value.get("model") == model_name or key == model_name:
                         api_model_name = value.get("model", model_name)
-                        # Get API endpoint from llm_data, fallback to router config
+                        # 从 llm_data 获取 API 端点，如果不存在则回退到路由器配置
                         api_endpoint = value.get(
                             "api_endpoint",
                             router_instance.cfg.get("api_endpoint")
                         )
-                        # Get service field for service-specific API key selection
+                        # 获取 service 字段用于服务特定的 API 密钥选择
                         service = value.get("service")
                         break
-        
-        # If still no endpoint found, try router config
+
+        # 如果仍然没有找到端点，尝试从路由器配置获取
         if api_endpoint is None:
             api_endpoint = router_instance.cfg.get("api_endpoint")
-        
-        # Validate that we have an endpoint
+
+        # 验证我们有端点
         if not api_endpoint:
             return f"Error: API endpoint not found for model '{model_name}'. Please specify 'api_endpoint' in llm_data JSON for this model or in router YAML config."
-        
-        # Build prompt with chat history
+
+        # 构建包含聊天历史的提示词
         prompt = "You are a helpful AI assistant.\n\n"
         for human, assistant in history_pairs:
             prompt += f"User: {human}\nAssistant: {assistant}\n\n"
         prompt += f"User: {message}\nAssistant:"
-        
-        # Call the routed model via API
+
+        # 通过 API 调用路由到的模型
         request = {
             "api_endpoint": api_endpoint,
             "query": prompt,
-            "model_name": model_name,  # Keep original for router identification
-            "api_name": api_model_name,  # Use full API model path
+            "model_name": model_name,  # 保留原始名称用于路由器识别
+            "api_name": api_model_name,  # 使用完整的 API 模型路径
         }
-        # Add service field if available (for service-specific API key selection)
+        # 如果可用则添加 service 字段（用于服务特定的 API 密钥选择）
         if service:
             request["service"] = service
-        
+
         result = call_api(request, max_tokens=1024, temperature=temperature)
-        
+
         response = result.get("response", "No response generated")
-        
-        # Add model name prefix
+
+        # 添加模型名称前缀
         model_prefix = f"[{model_name}]\n"
         return model_prefix + response
-        
+
     except Exception as e:
         import traceback
         return f"Error: {str(e)}\n{traceback.format_exc()}"
 
 
 def create_interface(router_instance, router_name: str, args):
-    """Create a minimal, focused chat interface."""
-    
-    # Get LLM count for display
+    """创建简洁的聊天界面"""
+
+    # 获取 LLM 数量用于显示
     llm_count = 0
     if hasattr(router_instance, 'llm_data') and router_instance.llm_data:
         llm_count = len(router_instance.llm_data)
-    
+
     def predict_with_router(message, history, temperature, mode, top_k):
         return predict(message, history, router_instance, router_name, temperature, mode, top_k)
-    
-    # Use gr.themes.Base() to minimize default styling interference, but Default is also fine with our overrides
+
+    # 使用 gr.themes.Base() 最小化默认样式干扰，但 Default 配合我们的自定义样式也可以
     with gr.Blocks(css=CUSTOM_CSS, theme=gr.themes.Default(), title="LLMRouter") as demo:
-        
-        # Minimal top bar
+
+        # 简洁的顶部栏
         gr.HTML(f"""
             <div class="top-bar">
                 <h1>LLMRouter</h1>
                 <span class="status-pill">{router_name}</span>
             </div>
         """)
-        
+
         with gr.Row():
-            # Main chat area - takes most space
+            # 主聊天区域 - 占据大部分空间
             with gr.Column(scale=4, elem_classes=["main-chat"]):
                 chatbot = gr.Chatbot(
                     height=560,
@@ -826,7 +840,7 @@ def create_interface(router_instance, router_name: str, args):
                     type="messages",
                     elem_classes=["main-chat"]
                 )
-                
+
                 with gr.Row(elem_classes=["input-row"]):
                     msg = gr.Textbox(
                         placeholder="Type a message...",
@@ -835,13 +849,13 @@ def create_interface(router_instance, router_name: str, args):
                         scale=5,
                     )
                     submit_btn = gr.Button("Send", variant="primary", scale=1)
-                
+
                 with gr.Row(elem_classes=["action-btns"]):
                     clear_btn = gr.Button("Clear", size="sm")
                     retry_btn = gr.Button("Retry", size="sm")
                     undo_btn = gr.Button("Undo", size="sm")
-            
-            # Compact side panel
+
+            # 紧凑的侧边栏
             with gr.Column(scale=1, min_width=200, elem_classes=["side-column"]):
                 gr.HTML(f"""
                     <div class="side-panel">
@@ -856,10 +870,10 @@ def create_interface(router_instance, router_name: str, args):
                         </div>
                     </div>
                 """)
-                
+
                 with gr.Column(elem_classes=["controls-section"]):
                     mode = gr.Radio(
-                        label="Routing Context", # Changed label for better aesthetics
+                        label="Routing Context", # 更改标签以获得更好的美观度
                         choices=["current_only", "full_context", "retrieval"],
                         value=args.mode,
                         container=True,
@@ -880,21 +894,21 @@ def create_interface(router_instance, router_name: str, args):
                         step=1,
                         visible=(args.mode == "retrieval"),
                     )
-        
-        # Event handlers - show user message immediately, then stream response
+
+        # 事件处理器 - 立即显示用户消息，然后流式传输响应
         def user_message(message, chat_history):
-            """Add user message immediately and clear input."""
+            """立即添加用户消息并清空输入框"""
             if not message.strip():
                 return "", chat_history
-            # Gradio message objects require string content; use empty string as placeholder
+            # Gradio 消息对象需要字符串内容；使用空字符串作为占位符
             updated_history = chat_history + [
                 {"role": "user", "content": message},
                 {"role": "assistant", "content": ""},
             ]
             return "", updated_history
-        
+
         def bot_response(chat_history, temperature, mode, top_k):
-            """Stream the bot response character by character."""
+            """逐字符流式传输机器人响应"""
             if (
                 len(chat_history) < 2
                 or chat_history[-1].get("role") != "assistant"
@@ -914,9 +928,9 @@ def create_interface(router_instance, router_name: str, args):
                 partial += char
                 chat_history[-1]["content"] = partial
                 yield chat_history
-        
+
         def retry_last(chat_history, temperature, mode, top_k):
-            """Retry the last message with streaming."""
+            """使用流式传输重试最后一条消息"""
             if not chat_history:
                 yield chat_history
                 return
@@ -940,8 +954,8 @@ def create_interface(router_instance, router_name: str, args):
                 partial += char
                 trimmed_history[-1]["content"] = partial
                 yield trimmed_history
-        
-        # Connect events - two-step: show user msg, then stream response
+
+        # 连接事件 - 两步：显示用户消息，然后流式传输响应
         msg.submit(user_message, [msg, chatbot], [msg, chatbot], queue=False).then(
             bot_response, [chatbot, temperature, mode, top_k], chatbot
         )
@@ -957,12 +971,12 @@ def create_interface(router_instance, router_name: str, args):
             queue=False,
         )
         mode.change(lambda m: gr.update(visible=(m == "retrieval")), mode, top_k)
-    
+
     return demo
 
 
 def main():
-    """Main entry point for the chat interface."""
+    """聊天界面的主入口函数"""
     parser = argparse.ArgumentParser(
         description="Chatbot Interface for LLMRouter",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -1027,14 +1041,14 @@ Examples:
         action="store_true",
         help="Create a public shareable link",
     )
-    
+
     args = parser.parse_args()
-    
-    # Validate config file exists
+
+    # 验证配置文件是否存在
     if not os.path.exists(args.config):
         raise FileNotFoundError(f"Config file not found: {args.config}")
-    
-    # Print startup banner
+
+    # 打印启动横幅
     print("\n" + "=" * 60)
     print("🚀 LLMRouter Chat Interface")
     print("=" * 60)
@@ -1045,13 +1059,13 @@ Examples:
     if args.load_model_path:
         print(f"  Model:   {args.load_model_path}")
     print("=" * 60 + "\n")
-    
-    # Load router
+
+    # 加载路由器
     print("📦 Loading router...")
     router_instance = load_router(args.router, args.config, args.load_model_path)
     print("✅ Router loaded successfully!\n")
-    
-    # Create and launch the interface
+
+    # 创建并启动界面
     print("🌐 Starting web interface...")
     demo = create_interface(router_instance, args.router, args)
     demo.queue().launch(

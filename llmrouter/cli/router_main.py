@@ -3,6 +3,11 @@ LLMRouter Main CLI Entry Point
 
 This script provides a unified command-line interface for LLMRouter.
 It integrates training, inference, and chat functionalities through subcommands.
+
+LLMRouter 主命令行入口点
+
+本脚本提供 LLMRouter 的统一命令行界面。
+通过子命令集成训练、推理和聊天功能。
 """
 
 import argparse
@@ -12,6 +17,7 @@ from typing import List, Optional
 
 def print_banner():
     """Print LLMRouter banner."""
+    # 打印 LLMRouter 启动横幅
     banner = """
     TPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPW
     Q                        LLMRouter                          Q
@@ -26,9 +32,11 @@ def train_command(args):
     from llmrouter.cli.router_train import train_router, get_device
 
     # Determine device
+    # 确定训练设备
     device = get_device(args.device if args.device != "auto" else None)
 
     # Train router
+    # 训练路由器模型
     verbose = not args.quiet
     try:
         train_router(
@@ -38,6 +46,7 @@ def train_command(args):
             verbose=verbose,
         )
     except Exception as e:
+        # 错误处理：捕获并显示训练异常
         print(f"\nError: {str(e)}", file=sys.stderr)
         if verbose:
             import traceback
@@ -58,11 +67,13 @@ def infer_command(args):
     )
 
     # Validate config file
+    # 验证配置文件是否存在
     if not os.path.exists(args.config):
         print(f"Error: Config file not found: {args.config}", file=sys.stderr)
         sys.exit(1)
 
     # Load router
+    # 加载路由器模型
     if args.verbose:
         print(f"Loading router: {args.router}", file=sys.stderr)
         print(f"Using config: {args.config}", file=sys.stderr)
@@ -72,10 +83,12 @@ def infer_command(args):
         if args.verbose:
             print("Router loaded successfully!", file=sys.stderr)
     except Exception as e:
+        # 错误处理：捕获并显示路由器加载异常
         print(f"Error loading router: {e}", file=sys.stderr)
         sys.exit(1)
 
     # Determine queries
+    # 确定查询来源：命令行参数或输入文件
     if args.query:
         queries = [args.query]
     else:
@@ -87,15 +100,18 @@ def infer_command(args):
             if args.verbose:
                 print(f"Loaded {len(queries)} queries from {args.input}", file=sys.stderr)
         except Exception as e:
+            # 错误处理：捕获并显示查询加载异常
             print(f"Error loading queries from file: {e}", file=sys.stderr)
             sys.exit(1)
 
     # Process queries
+    # 处理所有查询
     results = []
     for i, query in enumerate(queries):
         if args.verbose:
             print(f"\nProcessing query {i+1}/{len(queries)}: {query[:50]}...", file=sys.stderr)
 
+        # 根据参数选择仅路由或完整推理
         if args.route_only:
             result = route_query(query, router_instance, args.router)
         else:
@@ -119,16 +135,19 @@ def infer_command(args):
                 print(f"Error: {result.get('error')}", file=sys.stderr)
 
     # Output results
+    # 输出结果：保存到文件或打印到标准输出
     if args.output:
         try:
             save_results_to_file(results, args.output, args.output_format)
             if args.verbose:
                 print(f"\nResults saved to {args.output}", file=sys.stderr)
         except Exception as e:
+            # 错误处理：捕获并显示结果保存异常
             print(f"Error saving results: {e}", file=sys.stderr)
             sys.exit(1)
     else:
         # Print to stdout
+        # 打印到标准输出
         import json
         if len(results) == 1:
             print(json.dumps(results[0], indent=2, ensure_ascii=False))
@@ -142,6 +161,7 @@ def chat_command(args):
     try:
         import gradio as gr
     except ImportError:
+        # 错误处理：检查 gradio 依赖是否安装
         print("Error: gradio is required for chat interface. Install it with:", file=sys.stderr)
         print("  pip install gradio", file=sys.stderr)
         sys.exit(1)
@@ -149,11 +169,13 @@ def chat_command(args):
     from llmrouter.cli.router_chat import load_router, predict
 
     # Validate config file
+    # 验证配置文件是否存在
     if not os.path.exists(args.config):
         print(f"Error: Config file not found: {args.config}", file=sys.stderr)
         sys.exit(1)
 
     # Load router
+    # 加载路由器模型
     print(f"Loading router: {args.router}")
     print(f"Using config: {args.config}")
     if args.load_model_path:
@@ -163,14 +185,17 @@ def chat_command(args):
         router_instance = load_router(args.router, args.config, args.load_model_path)
         print("Router loaded successfully!")
     except Exception as e:
+        # 错误处理：捕获并显示路由器加载异常
         print(f"Error loading router: {e}", file=sys.stderr)
         sys.exit(1)
 
     # Create predict function with router instance bound
+    # 创建绑定路由器实例的预测函数
     def predict_with_router(message, history, temperature, mode, top_k):
         return predict(message, history, router_instance, args.router, temperature, mode, top_k)
 
     # Create and launch chat interface
+    # 创建并启动聊天界面
     interface = gr.ChatInterface(
         predict_with_router,
         additional_inputs=[
@@ -214,6 +239,7 @@ def list_routers_command(args):
     print("=" * 70)
 
     # All routers (for inference)
+    # 列出所有可用于推理的路由器
     print("\nRouters available for INFERENCE:")
     print("-" * 70)
     for router_name in sorted(ROUTER_REGISTRY.keys()):
@@ -221,6 +247,7 @@ def list_routers_command(args):
         print(f"  {router_name:25s} - {router_class.__name__}")
 
     # Trainable routers
+    # 列出所有可用于训练的路由器
     print("\nRouters available for TRAINING:")
     print("-" * 70)
     for router_name in sorted(ROUTER_TRAINER_REGISTRY.keys()):
@@ -228,6 +255,7 @@ def list_routers_command(args):
         print(f"  {router_name:25s} - {router_class.__name__} / {trainer_class.__name__}")
 
     # Non-trainable routers
+    # 列出不支持训练的路由器
     if UNSUPPORTED_ROUTERS:
         print("\nRouters NOT available for training:")
         print("-" * 70)
@@ -244,6 +272,7 @@ def version_command(args):
         import llmrouter
         version = getattr(llmrouter, "__version__", "unknown")
     except Exception:
+        # 错误处理：版本号获取失败时使用默认值
         version = "unknown"
 
     print(f"LLMRouter version: {version}")
@@ -254,6 +283,7 @@ def serve_command(args):
     import os
 
     # Check dependencies
+    # 检查依赖是否安装
     try:
         import fastapi
         import uvicorn
@@ -266,6 +296,7 @@ def serve_command(args):
     from openclaw_router import run_server, create_app, OpenClawConfig
 
     # Load config
+    # 加载配置文件
     config = None
     if args.config:
         if not os.path.exists(args.config):
@@ -276,6 +307,7 @@ def serve_command(args):
         config = OpenClawConfig()
 
     # Override config with CLI args
+    # 使用命令行参数覆盖配置文件
     if args.host:
         config.host = args.host
     if args.port:
@@ -289,6 +321,7 @@ def serve_command(args):
         config.show_model_prefix = False
 
     # Create and run app
+    # 创建并运行 FastAPI 应用
     app = create_app(config=config)
     run_server(app, host=config.host, port=config.port)
 
@@ -301,6 +334,8 @@ def create_parser() -> argparse.ArgumentParser:
     except Exception:
         cli_version = "unknown"
 
+    # Create main parser
+    # 创建主参数解析器
     parser = argparse.ArgumentParser(
         description="LLMRouter - Intelligent Model Routing for Large Language Models",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -333,6 +368,8 @@ For more information on each subcommand, use:
         help="Show version and exit",
     )
 
+    # Create subcommands parser
+    # 创建子命令解析器
     subparsers = parser.add_subparsers(
         title="subcommands",
         description="Available commands",
@@ -341,6 +378,7 @@ For more information on each subcommand, use:
     )
 
     # ========== TRAIN SUBCOMMAND ==========
+    # ========== 训练子命令 ==========
     train_parser = subparsers.add_parser(
         "train",
         help="Train a router model",
@@ -374,6 +412,7 @@ For more information on each subcommand, use:
     train_parser.set_defaults(func=train_command)
 
     # ========== INFER SUBCOMMAND ==========
+    # ========== 推理子命令 ==========
     infer_parser = subparsers.add_parser(
         "infer",
         help="Perform inference with a router",
@@ -394,6 +433,7 @@ For more information on each subcommand, use:
     )
 
     # Query input (mutually exclusive)
+    # 查询输入（互斥参数组）
     query_group = infer_parser.add_mutually_exclusive_group(required=True)
     query_group.add_argument(
         "--query",
@@ -450,6 +490,7 @@ For more information on each subcommand, use:
     infer_parser.set_defaults(func=infer_command)
 
     # ========== CHAT SUBCOMMAND ==========
+    # ========== 聊天子命令 ==========
     chat_parser = subparsers.add_parser(
         "chat",
         help="Launch interactive chat interface",
@@ -513,6 +554,7 @@ For more information on each subcommand, use:
     chat_parser.set_defaults(func=chat_command)
 
     # ========== LIST-ROUTERS SUBCOMMAND ==========
+    # ========== 列出路由器子命令 ==========
     list_parser = subparsers.add_parser(
         "list-routers",
         help="List all available routers",
@@ -521,6 +563,7 @@ For more information on each subcommand, use:
     list_parser.set_defaults(func=list_routers_command)
 
     # ========== VERSION SUBCOMMAND ==========
+    # ========== 版本信息子命令 ==========
     version_parser = subparsers.add_parser(
         "version",
         help="Show version information",
@@ -529,6 +572,7 @@ For more information on each subcommand, use:
     version_parser.set_defaults(func=version_command)
 
     # ========== SERVE SUBCOMMAND ==========
+    # ========== 服务子命令（启动 API 服务器）==========
     serve_parser = subparsers.add_parser(
         "serve",
         help="Start OpenAI-compatible API server (OpenClaw Router)",
@@ -627,12 +671,14 @@ def main(argv: Optional[List[str]] = None):
     args = parser.parse_args(argv)
 
     # If no subcommand is provided, show help
+    # 如果没有提供子命令，显示帮助信息
     if not hasattr(args, "func"):
         print_banner()
         parser.print_help()
         sys.exit(0)
 
     # Execute the appropriate subcommand
+    # 执行对应的子命令
     args.func(args)
 
 

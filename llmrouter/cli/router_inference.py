@@ -16,7 +16,7 @@ from typing import Dict, Any, Optional, List
 from pathlib import Path
 
 def _configure_multiprocessing() -> None:
-    """Ensure CUDA-safe multiprocessing for vLLM workers."""
+    """确保 vLLM 工作进程使用 CUDA 安全的多进程方式"""
     os.environ.setdefault("VLLM_WORKER_MULTIPROC_METHOD", "spawn")
     try:
         mp.set_start_method("spawn")
@@ -53,6 +53,7 @@ from llmrouter.utils import call_api
 
 
 def _safe_unlink(path: str) -> None:
+    """安全删除文件，如果文件不存在则忽略错误"""
     try:
         os.unlink(path)
     except FileNotFoundError:
@@ -144,19 +145,19 @@ except ImportError:
 
 def load_router(router_name: str, config_path: str, load_model_path: Optional[str] = None):
     """
-    Load a router instance based on router name and config.
+    根据路由器名称和配置加载路由器实例
 
     Args:
-        router_name: Name of the router method (e.g., "knnrouter", "llmmultiroundrouter")
-        config_path: Path to YAML configuration file
-        load_model_path: Optional path to override model_path.load_model_path in config
+        router_name: 路由器方法名称（如 "knnrouter"、"llmmultiroundrouter"）
+        config_path: YAML 配置文件路径
+        load_model_path: 可选路径，用于覆盖配置文件中的 model_path.load_model_path
 
     Returns:
-        Router instance
+        路由器实例
     """
     router_name_lower = router_name.lower()
 
-    # Check if router is unsupported
+    # 检查路由器是否不支持推理
     if router_name_lower in UNSUPPORTED_ROUTERS:
         raise ValueError(
             f"Router '{router_name}' is not supported for inference. "
@@ -170,9 +171,9 @@ def load_router(router_name: str, config_path: str, load_model_path: Optional[st
 
     router_class = ROUTER_REGISTRY[router_name_lower]
 
-    # Override model path in config if provided
+    # 如果提供了自定义模型路径，覆盖配置文件中的模型路径
     if load_model_path:
-        # Read config, modify, write to temp file
+        # 读取配置、修改、写入临时文件
         with open(config_path, "r", encoding="utf-8") as f:
             config = yaml.safe_load(f) or {}
 
@@ -180,18 +181,18 @@ def load_router(router_name: str, config_path: str, load_model_path: Optional[st
             config["model_path"] = {}
         config["model_path"]["load_model_path"] = load_model_path
 
-        # Write to temp config file
+        # 写入临时配置文件
         import tempfile
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False, encoding="utf-8") as temp_config:
             yaml.safe_dump(config, temp_config)
             config_path = temp_config.name
         atexit.register(_safe_unlink, config_path)
 
-    # Initialize router
+    # 初始化路由器
     try:
         router = router_class(yaml_path=config_path)
     except TypeError as e:
-        # If initialization fails, it might need additional parameters
+        # 如果初始化失败，可能需要额外的初始化参数
         if "required positional argument" in str(e) or "missing" in str(e).lower():
             raise ValueError(
                 f"Router '{router_name}' requires additional initialization parameters. "
@@ -208,20 +209,20 @@ def route_query(
     router_name: str,
 ) -> Dict[str, Any]:
     """
-    Route a single query and return routing decision.
+    路由单个查询并返回路由决策
 
     Args:
-        query: Input query string
-        router_instance: Loaded router instance
-        router_name: Router method name
+        query: 输入查询字符串
+        router_instance: 已加载的路由器实例
+        router_name: 路由器方法名称
 
     Returns:
-        Dictionary containing routing result
+        包含路由结果的字典
     """
     router_name_lower = router_name.lower()
 
-    # Multi-round routers and RouterR1 don't support --route-only
-    # because they execute the full pipeline internally
+    # 多轮路由器和 RouterR1 不支持 --route-only
+    # 因为它们在内部执行完整的推理流程
     if router_name_lower in ROUTERS_REQUIRING_SPECIAL_ARGS:
         return {
             "success": False,
@@ -237,11 +238,11 @@ def route_query(
         }
 
     try:
-        # Route the query
+        # 执行查询路由
         query_input = {"query": query}
         routing_result = router_instance.route_single(query_input)
 
-        # Extract model name from routing result
+        # 从路由结果中提取模型名称
         model_name = (
             routing_result.get("model_name")
             or routing_result.get("predicted_llm")
@@ -280,27 +281,27 @@ def infer_query(
     max_tokens: int = 1024,
 ) -> Dict[str, Any]:
     """
-    Perform full inference: route query + call API + return response.
+    执行完整推理：路由查询 + 调用 API + 返回响应
 
     Args:
-        query: Input query string
-        router_instance: Loaded router instance
-        router_name: Router method name
-        temperature: Temperature for generation
-        max_tokens: Maximum tokens for generation
+        query: 输入查询字符串
+        router_instance: 已加载的路由器实例
+        router_name: 路由器方法名称
+        temperature: 生成温度参数
+        max_tokens: 最大生成令牌数
 
     Returns:
-        Dictionary containing inference result
+        包含推理结果的字典
     """
     router_name_lower = router_name.lower()
 
-    # Check if router is a multi-round router (full pipeline in route_single)
+    # 检查路由器是否为多轮路由器（在 route_single 中执行完整流程）
     if router_name_lower in MULTI_ROUND_ROUTERS:
-        # Multi-round routers do full pipeline: decompose + route + execute + aggregate
-        # Their route_single returns response directly (string in chat mode, dict in eval mode)
+        # 多轮路由器执行完整流程：分解 + 路由 + 执行 + 聚合
+        # 它们的 route_single 直接返回响应（聊天模式下返回字符串，评估模式下返回字典）
         try:
             result = router_instance.route_single(query)
-            # route_single returns string for simple query, dict for evaluation mode
+            # route_single 对简单查询返回字符串，对评估模式返回字典
             if isinstance(result, str):
                 return {
                     "success": True,
@@ -310,7 +311,7 @@ def infer_query(
                     "method": "multi_round_router",
                 }
             else:
-                # Dict result with response, tokens, etc.
+                # 包含响应、令牌数等信息的字典结果
                 return {
                     "success": result.get("success", True),
                     "query": query,
@@ -329,10 +330,10 @@ def infer_query(
                 "traceback": traceback.format_exc(),
             }
 
-    # Handle RouterR1 specially (requires model_id, api_base, api_key)
+    # 特殊处理 RouterR1（需要 model_id、api_base、api_key）
     if router_name_lower in ROUTERS_REQUIRING_SPECIAL_ARGS:
         try:
-            # Get required parameters from config
+            # 从配置中获取必需参数
             cfg = getattr(router_instance, "cfg", {}) or {}
             hparam = cfg.get("hparam", {}) or {}
             api_base = hparam.get("api_base") or getattr(router_instance, "api_base", None)
@@ -345,7 +346,7 @@ def infer_query(
                     "error": "RouterR1 requires api_key and api_base in yaml config",
                 }
 
-            # RouterR1's route_single returns the response
+            # RouterR1 的 route_single 返回响应
             result = router_instance.route_single({"query": query})
             return {
                 "success": True,
@@ -363,13 +364,13 @@ def infer_query(
                 "traceback": traceback.format_exc(),
             }
 
-    # Otherwise, use route_single to get routing decision, then call model
+    # 否则，使用 route_single 获取路由决策，然后调用模型
     try:
-        # Route the query
+        # 执行查询路由
         query_input = {"query": query}
         routing_result = router_instance.route_single(query_input)
 
-        # Extract model name from routing result
+        # 从路由结果中提取模型名称
         model_name = (
             routing_result.get("model_name")
             or routing_result.get("predicted_llm")
@@ -384,41 +385,41 @@ def infer_query(
                 "routing_result": routing_result,
             }
 
-        # Get API endpoint and model name from llm_data if available
-        api_model_name = model_name  # Default to model_name
+        # 从 llm_data 获取 API 端点和模型名称（如果可用）
+        api_model_name = model_name  # 默认使用 model_name
         api_endpoint = None
         service = None
-        
+
         if hasattr(router_instance, 'llm_data') and router_instance.llm_data:
             if model_name in router_instance.llm_data:
-                # Use the "model" field from llm_data which contains the full API path
+                # 使用 llm_data 中的 "model" 字段，它包含完整的 API 路径
                 api_model_name = router_instance.llm_data[model_name].get("model", model_name)
-                # Get API endpoint from llm_data, fallback to router config
+                # 从 llm_data 获取 API 端点，如果不存在则回退到路由器配置
                 api_endpoint = router_instance.llm_data[model_name].get(
                     "api_endpoint",
                     router_instance.cfg.get("api_endpoint")
                 )
-                # Get service field for service-specific API key selection
+                # 获取 service 字段用于服务特定的 API 密钥选择
                 service = router_instance.llm_data[model_name].get("service")
             else:
-                # If model_name not found, try to find it by matching model field
+                # 如果未找到 model_name，尝试通过匹配 model 字段来查找
                 for key, value in router_instance.llm_data.items():
                     if value.get("model") == model_name or key == model_name:
                         api_model_name = value.get("model", model_name)
-                        # Get API endpoint from llm_data, fallback to router config
+                        # 从 llm_data 获取 API 端点，如果不存在则回退到路由器配置
                         api_endpoint = value.get(
                             "api_endpoint",
                             router_instance.cfg.get("api_endpoint")
                         )
-                        # Get service field for service-specific API key selection
+                        # 获取 service 字段用于服务特定的 API 密钥选择
                         service = value.get("service")
                         break
-        
-        # If still no endpoint found, try router config
+
+        # 如果仍然没有找到端点，尝试从路由器配置获取
         if api_endpoint is None:
             api_endpoint = router_instance.cfg.get("api_endpoint")
-        
-        # Validate that we have an endpoint
+
+        # 验证我们有端点
         if not api_endpoint:
             return {
                 "success": False,
@@ -427,14 +428,14 @@ def infer_query(
                 "routing_result": routing_result,
             }
 
-        # Call the routed model via API
+        # 通过 API 调用路由到的模型
         request = {
             "api_endpoint": api_endpoint,
             "query": query,
-            "model_name": model_name,  # Keep original for router identification
-            "api_name": api_model_name,  # Use full API model path
+            "model_name": model_name,  # 保留原始名称用于路由器识别
+            "api_name": api_model_name,  # 使用完整的 API 模型路径
         }
-        # Add service field if available (for service-specific API key selection)
+        # 如果可用则添加 service 字段（用于服务特定的 API 密钥选择）
         if service:
             request["service"] = service
 
@@ -463,17 +464,18 @@ def infer_query(
 
 def load_queries_from_file(file_path: str) -> List[str]:
     """
-    Load queries from a file.
-    Supports:
-    - Plain text file (one query per line)
-    - JSON file (list of strings or list of dicts with "query" field)
-    - JSONL file (one JSON object per line with "query" field)
+    从文件中加载查询
+
+    支持格式：
+    - 纯文本文件（每行一个查询）
+    - JSON 文件（字符串列表或包含 "query" 字段的字典列表）
+    - JSONL 文件（每行一个包含 "query" 字段的 JSON 对象）
 
     Args:
-        file_path: Path to input file
+        file_path: 输入文件路径
 
     Returns:
-        List of query strings
+        查询字符串列表
     """
     file_ext = Path(file_path).suffix.lower()
 
@@ -505,18 +507,18 @@ def load_queries_from_file(file_path: str) -> List[str]:
             return queries
 
         else:
-            # Plain text file, one query per line
+            # 纯文本文件，每行一个查询
             return [line.strip() for line in f if line.strip()]
 
 
 def save_results_to_file(results: List[Dict[str, Any]], output_path: str, output_format: str = "json"):
     """
-    Save results to a file.
+    将结果保存到文件
 
     Args:
-        results: List of result dictionaries
-        output_path: Path to output file
-        output_format: Output format - "json" or "jsonl"
+        results: 结果字典列表
+        output_path: 输出文件路径
+        output_format: 输出格式 - "json" 或 "jsonl"
     """
     with open(output_path, "w", encoding="utf-8") as f:
         if output_format == "jsonl":
@@ -527,7 +529,7 @@ def save_results_to_file(results: List[Dict[str, Any]], output_path: str, output
 
 
 def main():
-    """Main entry point for router inference."""
+    """路由器推理的主入口函数"""
     parser = argparse.ArgumentParser(
         description="Router Inference Script for LLMRouter",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -544,7 +546,7 @@ Examples:
         """
     )
 
-    # Required arguments
+    # 必需参数
     parser.add_argument(
         "--router",
         type=str,
@@ -558,7 +560,7 @@ Examples:
         help="Path to YAML configuration file",
     )
 
-    # Query input
+    # 查询输入参数
     query_group = parser.add_mutually_exclusive_group(required=True)
     query_group.add_argument(
         "--query",
@@ -571,7 +573,7 @@ Examples:
         help="Path to input file containing queries (supports .txt, .json, .jsonl)",
     )
 
-    # Optional arguments
+    # 可选参数
     parser.add_argument(
         "--load_model_path",
         type=str,
@@ -616,12 +618,12 @@ Examples:
 
     args = parser.parse_args()
 
-    # Validate config file exists
+    # 验证配置文件是否存在
     if not os.path.exists(args.config):
         print(f"Error: Config file not found: {args.config}", file=sys.stderr)
         sys.exit(1)
 
-    # Load router
+    # 加载路由器
     if args.verbose:
         print(f"Loading router: {args.router}", file=sys.stderr)
         print(f"Using config: {args.config}", file=sys.stderr)
@@ -636,7 +638,7 @@ Examples:
         print(f"Error loading router: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # Determine queries
+    # 确定查询列表
     if args.query:
         queries = [args.query]
     else:
@@ -651,7 +653,7 @@ Examples:
             print(f"Error loading queries from file: {e}", file=sys.stderr)
             sys.exit(1)
 
-    # Process queries
+    # 处理查询
     results = []
     for i, query in enumerate(queries):
         if args.verbose:
@@ -679,7 +681,7 @@ Examples:
             else:
                 print(f"  └ Error: {result.get('error')}", file=sys.stderr)
 
-    # Output results
+    # 输出结果
     if args.output:
         try:
             save_results_to_file(results, args.output, args.output_format)
@@ -689,13 +691,13 @@ Examples:
             print(f"Error saving results: {e}", file=sys.stderr)
             sys.exit(1)
     else:
-        # Print to stdout
+        # 打印到标准输出
         if len(results) == 1:
-            # Single query: print nicely formatted
+            # 单个查询：打印格式化结果
             result = results[0]
             print(json.dumps(result, indent=2, ensure_ascii=False))
         else:
-            # Multiple queries: print as JSON array
+            # 多个查询：打印为 JSON 数组
             print(json.dumps(results, indent=2, ensure_ascii=False))
 
 

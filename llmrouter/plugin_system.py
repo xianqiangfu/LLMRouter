@@ -1,22 +1,21 @@
 """
-Plugin System for LLMRouter
-============================
+LLMRouter 插件系统
+====================
 
-This module provides a plugin discovery and registration system that allows
-users to add custom router implementations without modifying the core codebase.
+该模块提供插件发现和注册系统，允许用户在不修改核心代码库的情况下添加自定义路由器实现。
 
-Usage:
-    1. Create a directory for custom routers (e.g., custom_routers/)
-    2. Implement your router following the MetaRouter interface
-    3. The plugin system will automatically discover and register it
+使用方法：
+    1. 创建自定义路由器目录（如 custom_routers/）
+    2. 按照 MetaRouter 接口实现路由器
+    3. 插件系统将自动发现并注册该路由器
 
-Example Directory Structure:
+示例目录结构：
     custom_routers/
     ├── __init__.py
     └── my_custom_router/
         ├── __init__.py
-        ├── router.py       # Contains MyCustomRouter class
-        └── trainer.py      # (Optional) Contains MyCustomRouterTrainer class
+        ├── router.py       # 包含 MyCustomRouter 类
+        └── trainer.py      # (可选) 包含 MyCustomRouterTrainer 类
 """
 
 import os
@@ -29,37 +28,37 @@ import inspect
 
 class PluginRegistry:
     """
-    Central registry for managing custom router plugins.
+    用于管理自定义路由器插件的中心注册表。
 
-    This class handles:
-    - Discovery of custom routers from plugin directories
-    - Validation of router implementations
-    - Registration into the router and trainer registries
+    该类处理：
+    - 从插件目录中发现自定义路由器
+    - 验证路由器实现
+    - 注册到路由器和训练器注册表
     """
 
     def __init__(self):
-        """Initialize the plugin registry."""
+        """初始化插件注册表。"""
         self.discovered_routers: Dict[str, Tuple[Any, Optional[Any]]] = {}
         self.plugin_paths: List[str] = []
 
     def discover_plugins(self, plugin_dir: str, verbose: bool = False) -> None:
         """
-        Discover and load router plugins from a directory.
+        从目录中发现并加载路由器插件。
 
         Args:
-            plugin_dir: Path to directory containing custom routers
-            verbose: Whether to print discovery information
+            plugin_dir: 包含自定义路由器的目录路径
+            verbose: 是否打印发现信息
 
-        The directory structure should be:
+        目录结构应为：
             plugin_dir/
-            ├── __init__.py (optional)
+            ├── __init__.py (可选)
             └── router_name/
                 ├── __init__.py
-                ├── router.py       # Must contain a Router class inheriting from MetaRouter
-                └── trainer.py      # Optional: Contains a Trainer class
+                ├── router.py       # 必须包含继承自 MetaRouter 的 Router 类
+                └── trainer.py      # 可选：包含 Trainer 类
 
-        Each router module should export its main class via __init__.py or
-        have a class name ending with 'Router' in router.py
+        每个路由器模块应通过 __init__.py 导出其主类，
+        或在 router.py 中包含以 'Router' 结尾的类名
         """
         plugin_path = Path(plugin_dir)
 
@@ -73,7 +72,7 @@ class PluginRegistry:
                 print(f"⚠️  Plugin path is not a directory: {plugin_dir}")
             return
 
-        # Add plugin directory to Python path if not already there
+        # 如果插件目录尚未在 Python 路径中，则添加
         plugin_dir_str = str(plugin_path.resolve())
         if plugin_dir_str not in sys.path:
             sys.path.insert(0, plugin_dir_str)
@@ -83,7 +82,7 @@ class PluginRegistry:
             print(f"\n🔍 Discovering plugins in: {plugin_dir}")
             print("=" * 70)
 
-        # Scan for subdirectories (each is a potential router plugin)
+        # 扫描子目录（每个子目录都是潜在的路由器插件）
         for item in plugin_path.iterdir():
             if item.is_dir() and not item.name.startswith('_'):
                 self._load_router_from_directory(item, verbose=verbose)
@@ -94,16 +93,16 @@ class PluginRegistry:
 
     def _load_router_from_directory(self, router_dir: Path, verbose: bool = False) -> None:
         """
-        Load a router plugin from a directory.
+        从目录加载路由器插件。
 
         Args:
-            router_dir: Path to router plugin directory
-            verbose: Whether to print loading information
+            router_dir: 路由器插件目录的路径
+            verbose: 是否打印加载信息
         """
         router_name = router_dir.name.lower()
 
         try:
-            # Try to import the router module
+            # 尝试导入路由器模块
             router_class = self._import_router_class(router_dir)
             trainer_class = self._import_trainer_class(router_dir)
 
@@ -112,13 +111,13 @@ class PluginRegistry:
                     print(f"⚠️  Skipped {router_name}: No valid Router class found")
                 return
 
-            # Validate router class
+            # 验证路由器类
             if not self._validate_router_class(router_class):
                 if verbose:
                     print(f"❌ Skipped {router_name}: Router class validation failed")
                 return
 
-            # Register the router
+            # 注册路由器
             self.discovered_routers[router_name] = (router_class, trainer_class)
 
             if verbose:
@@ -131,22 +130,22 @@ class PluginRegistry:
 
     def _import_router_class(self, router_dir: Path) -> Optional[Any]:
         """
-        Import the Router class from a plugin directory.
+        从插件目录导入 Router 类。
 
-        Tries multiple strategies:
-        1. Import from __init__.py exports
-        2. Look for router.py with a class ending in 'Router'
-        3. Look for model.py with a class ending in 'Router'
+        尝试多种策略：
+        1. 从 __init__.py 导入
+        2. 查找 router.py 中以 'Router' 结尾的类
+        3. 查找 model.py 中以 'Router' 结尾的类
 
         Args:
-            router_dir: Path to router directory
+            router_dir: 路由器目录的路径
 
         Returns:
-            Router class or None if not found
+            Router 类，如果未找到则返回 None
         """
         module_name = router_dir.name
 
-        # Strategy 1: Try importing from __init__.py
+        # 策略 1：尝试从 __init__.py 导入
         try:
             spec = importlib.util.spec_from_file_location(
                 module_name,
@@ -156,14 +155,14 @@ class PluginRegistry:
                 module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(module)
 
-                # Look for a class that ends with 'Router'
+                # 查找以 'Router' 结尾的类
                 for name, obj in inspect.getmembers(module, inspect.isclass):
                     if name.endswith('Router') and not name.startswith('Meta'):
                         return obj
         except (FileNotFoundError, AttributeError, ImportError):
             pass
 
-        # Strategy 2: Try router.py
+        # 策略 2：尝试 router.py
         router_file = router_dir / "router.py"
         if router_file.exists():
             try:
@@ -181,7 +180,7 @@ class PluginRegistry:
             except (ImportError, AttributeError):
                 pass
 
-        # Strategy 3: Try model.py
+        # 策略 3：尝试 model.py
         model_file = router_dir / "model.py"
         if model_file.exists():
             try:
@@ -203,13 +202,13 @@ class PluginRegistry:
 
     def _import_trainer_class(self, router_dir: Path) -> Optional[Any]:
         """
-        Import the Trainer class from a plugin directory (optional).
+        从插件目录导入 Trainer 类（可选）。
 
         Args:
-            router_dir: Path to router directory
+            router_dir: 路由器目录的路径
 
         Returns:
-            Trainer class or None if not found
+            Trainer 类，如果未找到则返回 None
         """
         module_name = router_dir.name
         trainer_file = router_dir / "trainer.py"
@@ -226,7 +225,7 @@ class PluginRegistry:
                 module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(module)
 
-                # Look for a class that ends with 'Trainer'
+                # 查找以 'Trainer' 结尾的类
                 for name, obj in inspect.getmembers(module, inspect.isclass):
                     if name.endswith('Trainer') and not name.startswith('Base'):
                         return obj
@@ -237,15 +236,15 @@ class PluginRegistry:
 
     def _validate_router_class(self, router_class: Any) -> bool:
         """
-        Validate that a router class implements the required interface.
+        验证路由器类是否实现了所需的接口。
 
         Args:
-            router_class: Router class to validate
+            router_class: 要验证的路由器类
 
         Returns:
-            True if valid, False otherwise
+            如果有效则返回 True，否则返回 False
         """
-        # Check if it has the required methods
+        # 检查是否具有必需的方法
         required_methods = ['route_single', 'route_batch']
 
         for method_name in required_methods:
@@ -256,37 +255,36 @@ class PluginRegistry:
 
     def register_to_dict(self, target_dict: Dict[str, Any]) -> None:
         """
-        Register discovered routers into a target registry dictionary.
+        将发现的路由器注册到目标注册表字典中。
 
         Args:
-            target_dict: Dictionary to register routers into
+            target_dict: 用于注册路由器的字典
         """
         for router_name, (router_class, trainer_class) in self.discovered_routers.items():
-            # For inference registry (router only)
+            # 用于推理注册表（仅路由器）
             if trainer_class is None:
                 target_dict[router_name] = router_class
             else:
-                # For training registry (router + trainer tuple)
+                # 用于训练注册表（路由器 + 训练器元组）
                 target_dict[router_name] = (router_class, trainer_class)
 
     def get_router_names(self) -> List[str]:
-        """Get list of discovered router names."""
+        """获取已发现的路由器名称列表。"""
         return list(self.discovered_routers.keys())
 
     def get_router(self, name: str) -> Optional[Tuple[Any, Optional[Any]]]:
         """
-        Get a router by name.
+        根据名称获取路由器。
 
         Args:
-            name: Router name
+            name: 路由器名称
 
         Returns:
-            Tuple of (RouterClass, TrainerClass) or None if not found
+            (RouterClass, TrainerClass) 元组，如果未找到则返回 None
         """
         return self.discovered_routers.get(name.lower())
 
-
-# Global plugin registry instance
+# 全局插件注册表实例
 _global_registry = PluginRegistry()
 
 
@@ -295,37 +293,37 @@ def discover_and_register_plugins(
     verbose: bool = False
 ) -> PluginRegistry:
     """
-    Discover and register custom router plugins from specified directories.
+    从指定目录发现并注册自定义路由器插件。
 
     Args:
-        plugin_dirs: List of directories to scan for plugins.
-                    If None, uses default locations:
+        plugin_dirs: 要扫描插件的目录列表。
+                    如果为 None，则使用默认位置：
                     - ./custom_routers/
                     - ~/.llmrouter/plugins/
-                    - $LLMROUTER_PLUGINS environment variable
-        verbose: Whether to print discovery information
+                    - $LLMROUTER_PLUGINS 环境变量
+        verbose: 是否打印发现信息
 
     Returns:
-        PluginRegistry instance with discovered routers
+        包含已发现路由器的 PluginRegistry 实例
     """
     if plugin_dirs is None:
         plugin_dirs = []
 
-        # Default location 1: ./custom_routers/ (relative to current directory)
+        # 默认位置 1：./custom_routers/（相对于当前目录）
         if os.path.exists("custom_routers"):
             plugin_dirs.append("custom_routers")
 
-        # Default location 2: ~/.llmrouter/plugins/
+        # 默认位置 2：~/.llmrouter/plugins/
         home_plugins = Path.home() / ".llmrouter" / "plugins"
         if home_plugins.exists():
             plugin_dirs.append(str(home_plugins))
 
-        # Default location 3: Environment variable
+        # 默认位置 3：环境变量
         env_plugins = os.environ.get("LLMROUTER_PLUGINS")
         if env_plugins:
             plugin_dirs.extend(env_plugins.split(":"))
 
-    # Discover plugins from all directories
+    # 从所有目录中发现插件
     for plugin_dir in plugin_dirs:
         _global_registry.discover_plugins(plugin_dir, verbose=verbose)
 
@@ -333,5 +331,5 @@ def discover_and_register_plugins(
 
 
 def get_plugin_registry() -> PluginRegistry:
-    """Get the global plugin registry instance."""
+    """获取全局插件注册表实例。"""
     return _global_registry

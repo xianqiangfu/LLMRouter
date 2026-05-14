@@ -120,18 +120,18 @@ except ImportError:
 
 def get_device(device_arg: Optional[str] = None) -> str:
     """
-    Determine the device to use for training.
+    确定训练使用的设备
 
     Args:
-        device_arg: Optional device argument from CLI
+        device_arg: 命令行传入的设备参数
 
     Returns:
-        Device string ("cuda" or "cpu")
+        设备字符串（"cuda" 或 "cpu"）
     """
     if device_arg:
         return device_arg
 
-    # Auto-detect
+    # 自动检测
     try:
         import torch
         if torch.cuda.is_available():
@@ -148,19 +148,19 @@ def load_router_and_trainer(
     device: str = "cpu",
 ) -> Tuple[Any, Any]:
     """
-    Load router and trainer instances based on router name and config.
+    根据路由器名称和配置加载路由器和训练器实例
 
     Args:
-        router_name: Name of the router method (e.g., "knnrouter", "mlprouter")
-        config_path: Path to YAML configuration file
-        device: Device to use for training ("cuda" or "cpu")
+        router_name: 路由器方法名称（如 "knnrouter"、"mlprouter"）
+        config_path: YAML 配置文件路径
+        device: 训练使用的设备（"cuda" 或 "cpu"）
 
     Returns:
-        Tuple of (router_instance, trainer_instance)
+        (路由器实例, 训练器实例) 元组
     """
     router_name_lower = router_name.lower()
 
-    # Check if router is unsupported
+    # 检查路由器是否不支持训练
     if router_name_lower in UNSUPPORTED_ROUTERS:
         raise ValueError(
             f"Router '{router_name}' does not support training.\n"
@@ -175,7 +175,7 @@ def load_router_and_trainer(
 
     router_class, trainer_class = ROUTER_TRAINER_REGISTRY[router_name_lower]
 
-    # Initialize router
+    # 初始化路由器
     try:
         router_instance = router_class(yaml_path=config_path)
     except Exception as e:
@@ -184,7 +184,7 @@ def load_router_and_trainer(
             f"Error: {str(e)}"
         ) from e
 
-    # Initialize trainer
+    # 初始化训练器
     try:
         trainer_instance = trainer_class(router=router_instance, device=device)
     except Exception as e:
@@ -203,13 +203,13 @@ def train_router(
     verbose: bool = True,
 ) -> None:
     """
-    Train a router with the given configuration.
+    使用给定配置训练路由器
 
     Args:
-        router_name: Name of the router method
-        config_path: Path to YAML configuration file
-        device: Device to use for training
-        verbose: Whether to print verbose output
+        router_name: 路由器方法名称
+        config_path: YAML 配置文件路径
+        device: 训练使用的设备
+        verbose: 是否打印详细输出
     """
     if verbose:
         print(f"=" * 60)
@@ -219,7 +219,7 @@ def train_router(
         print(f"Device: {device}")
         print(f"=" * 60)
 
-    # Load router and trainer
+    # 加载路由器和训练器
     if verbose:
         print("\nLoading router and trainer...")
 
@@ -230,7 +230,7 @@ def train_router(
     if verbose:
         print("Router and trainer loaded successfully!")
 
-    # Train
+    # 开始训练
     if verbose:
         print(f"\nStarting training for {router_name}...\n")
 
@@ -245,7 +245,7 @@ def train_router(
 
 
 def main():
-    """Main entry point for router training."""
+    """路由器训练的主入口函数"""
     parser = argparse.ArgumentParser(
         description="Router Training Script for LLMRouter",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -275,7 +275,7 @@ Supported routers for training:
         """
     )
 
-    # Required arguments
+    # 必需参数
     parser.add_argument(
         "--router",
         type=str,
@@ -289,7 +289,7 @@ Supported routers for training:
         help="Path to YAML configuration file for training",
     )
 
-    # Optional arguments
+    # 可选参数
     parser.add_argument(
         "--device",
         type=str,
@@ -310,7 +310,7 @@ Supported routers for training:
 
     args = parser.parse_args()
 
-    # Handle --list-routers
+    # 处理 --list-routers 参数：列出所有支持训练的路由器
     if args.list_routers:
         print("Supported routers for training:")
         print("=" * 60)
@@ -328,15 +328,15 @@ Supported routers for training:
             print()
         sys.exit(0)
 
-    # Validate config file exists
+    # 验证配置文件是否存在
     if not os.path.exists(args.config):
         print(f"Error: Config file not found: {args.config}", file=sys.stderr)
         sys.exit(1)
 
-    # Determine device
+    # 确定训练设备
     device = get_device(args.device if args.device != "auto" else None)
 
-    # Train router
+    # 执行路由器训练
     verbose = not args.quiet
     try:
         train_router(
