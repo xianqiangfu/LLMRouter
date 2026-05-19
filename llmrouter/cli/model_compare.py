@@ -47,14 +47,14 @@ CUSTOM_CSS = """
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 20px 0;
-    margin-bottom: 24px;
+    padding: 16px 0;
+    margin-bottom: 16px;
     border-bottom: 1px solid #e5e7eb;
 }
 
 .top-bar h1 {
-    font-size: 1.5rem;
-    font-weight: 700;
+    font-size: 1.25rem;
+    font-weight: 600;
     color: #111827;
     margin: 0;
     letter-spacing: -0.025em;
@@ -63,10 +63,10 @@ CUSTOM_CSS = """
 .status-badge {
     background: #dbeafe;
     color: #1e40af;
-    padding: 6px 16px;
+    padding: 4px 12px;
     border-radius: 9999px;
-    font-size: 0.875rem;
-    font-weight: 600;
+    font-size: 0.75rem;
+    font-weight: 500;
     border: 1px solid #bfdbfe;
 }
 
@@ -74,9 +74,9 @@ CUSTOM_CSS = """
 .model-card {
     background: #ffffff !important;
     border: 1px solid #e2e8f0 !important;
-    border-radius: 16px !important;
-    padding: 20px !important;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03) !important;
+    border-radius: 12px !important;
+    padding: 14px !important;
+    box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.03) !important;
     height: 100%;
     display: flex;
     flex-direction: column;
@@ -86,20 +86,27 @@ CUSTOM_CSS = """
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 16px;
-    padding-bottom: 12px;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
     border-bottom: 1px solid #f1f5f9;
 }
 
 .model-card-title {
-    font-size: 1rem;
-    font-weight: 700;
+    font-size: 0.9rem;
+    font-weight: 600;
     color: #1e293b;
     margin: 0;
 }
 
 .model-card-select {
-    max-width: 200px;
+    width: 100%;
+}
+
+.model-card-select .label-wrap {
+    font-size: 0.75rem !important;
+    font-weight: 500 !important;
+    color: #64748b !important;
+    margin-bottom: 4px !important;
 }
 
 /* --- CHAT AREA --- */
@@ -108,7 +115,7 @@ CUSTOM_CSS = """
     border: none !important;
     box-shadow: none !important;
     flex: 1;
-    min-height: 400px;
+    min-height: 320px;
 }
 
 .chat-area .bubble-wrap {
@@ -172,21 +179,21 @@ CUSTOM_CSS = """
 .input-section {
     background: #ffffff !important;
     border: 1px solid #e2e8f0 !important;
-    border-radius: 16px !important;
-    padding: 20px !important;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03) !important;
-    margin-top: 20px;
+    border-radius: 12px !important;
+    padding: 16px !important;
+    box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.03) !important;
+    margin-top: 16px;
 }
 
 .input-row {
     display: flex;
-    gap: 12px;
+    gap: 10px;
     align-items: flex-end;
 }
 
 .input-row textarea {
-    border-radius: 12px !important;
-    padding: 14px !important;
+    border-radius: 10px !important;
+    padding: 12px !important;
     box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
     transition: all 0.2s;
     resize: none;
@@ -197,40 +204,13 @@ CUSTOM_CSS = """
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15) !important;
 }
 
-button.primary {
-    background: #2563eb !important;
-    border-radius: 10px !important;
-    transition: background 0.2s;
-}
-
-button.primary:hover {
-    background: #1d4ed8 !important;
-}
-
 /* --- ACTION BUTTONS --- */
 .action-btns {
     display: flex;
-    gap: 8px;
-    margin-top: 12px;
+    gap: 6px;
+    margin-top: 8px;
 }
 
-/* --- CONTROLS PANEL --- */
-.controls-panel {
-    background: #ffffff !important;
-    border: 1px solid #e2e8f0 !important;
-    border-radius: 16px !important;
-    padding: 20px !important;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03) !important;
-}
-
-.controls-panel span.label-wrap,
-.controls-panel label span {
-    color: #64748b !important;
-    font-weight: 600 !important;
-    font-size: 0.85rem !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.05em !important;
-}
 
 /* --- MODE 1 COLOR SCHEME --- */
 .model-1 .model-card-header {
@@ -256,6 +236,28 @@ button.primary:hover {
 
 input[type=range] {
     accent-color: #2563eb;
+}
+
+/* --- DROPDOWN --- */
+.wrap {
+    min-height: 36px !important;
+}
+
+button.primary {
+    background: #2563eb !important;
+    border-radius: 8px !important;
+    transition: background 0.2s;
+    font-weight: 500 !important;
+    font-size: 0.9rem !important;
+}
+
+button.primary:hover {
+    background: #1d4ed8 !important;
+}
+
+button.secondary {
+    font-weight: 500 !important;
+    font-size: 0.85rem !important;
 }
 
 footer { display: none !important; }
@@ -417,27 +419,6 @@ def create_interface(models_info: Dict[str, Any], args):
             </div>
         """)
 
-        # 控制面板
-        with gr.Row():
-            with gr.Column(scale=1):
-                with gr.Column(elem_classes=["controls-panel"]):
-                    temperature = gr.Slider(
-                        label="Temperature",
-                        minimum=0,
-                        maximum=2,
-                        value=args.temperature,
-                        step=0.1,
-                    )
-                    max_tokens = gr.Slider(
-                        label="Max Tokens",
-                        minimum=100,
-                        maximum=4000,
-                        value=args.max_tokens,
-                        step=100,
-                    )
-
-                    gr.HTML(f"<p style='margin-top:16px; color:#64748b; font-size:0.85rem;'>Loaded {len(model_keys)} models</p>")
-
         # 模型对比区域
         with gr.Row():
             # 模型 1
@@ -453,11 +434,10 @@ def create_interface(models_info: Dict[str, Any], args):
                         choices=model_keys,
                         value=default_model1,
                         label="Select Model",
-                        elem_classes=["model-card-select"],
                         interactive=True,
                     )
                     chatbot1 = gr.Chatbot(
-                        height=400,
+                        height=320,
                         show_label=False,
                         elem_classes=["chat-area"],
                     )
@@ -476,11 +456,10 @@ def create_interface(models_info: Dict[str, Any], args):
                         choices=model_keys,
                         value=default_model2,
                         label="Select Model",
-                        elem_classes=["model-card-select"],
                         interactive=True,
                     )
                     chatbot2 = gr.Chatbot(
-                        height=400,
+                        height=320,
                         show_label=False,
                         elem_classes=["chat-area"],
                     )
@@ -520,7 +499,7 @@ def create_interface(models_info: Dict[str, Any], args):
                 yield chatbot
 
         # 提交查询 - 并行模式
-        def submit_parallel(message: str, chat1: List[Dict], chat2: List[Dict], model1: str, model2: str, temp: float, max_tok: int):
+        def submit_parallel(message: str, chat1: List[Dict], chat2: List[Dict], model1: str, model2: str):
             if not message.strip():
                 return "", chat1, chat2
 
@@ -533,7 +512,7 @@ def create_interface(models_info: Dict[str, Any], args):
             info2 = get_model_info(model2)
 
             # 调用两个模型
-            response1, response2 = predict_both(message, info1, info2, temp, max_tok)
+            response1, response2 = predict_both(message, info1, info2, args.temperature, args.max_tokens)
 
             # 流式输出
             partial = ""
@@ -549,7 +528,7 @@ def create_interface(models_info: Dict[str, Any], args):
                 yield "", new_chat1, new_chat2
 
         # 提交查询 - 分别模式
-        def submit_sequential(message: str, chat1: List[Dict], chat2: List[Dict], model1: str, model2: str, temp: float, max_tok: int):
+        def submit_sequential(message: str, chat1: List[Dict], chat2: List[Dict], model1: str, model2: str):
             if not message.strip():
                 return "", chat1, chat2
 
@@ -558,7 +537,7 @@ def create_interface(models_info: Dict[str, Any], args):
             info2 = get_model_info(model2)
 
             # 调用两个模型（并行但分别流式输出）
-            response1, response2 = predict_both(message, info1, info2, temp, max_tok)
+            response1, response2 = predict_both(message, info1, info2, args.temperature, args.max_tokens)
 
             # 先显示模型1
             new_chat1 = chat1 + [{"role": "user", "content": message}, {"role": "assistant", "content": ""}]
@@ -587,13 +566,13 @@ def create_interface(models_info: Dict[str, Any], args):
         # 事件绑定
         submit_btn.click(
             submit_parallel,
-            [msg, chatbot1, chatbot2, model1_select, model2_select, temperature, max_tokens],
+            [msg, chatbot1, chatbot2, model1_select, model2_select],
             [msg, chatbot1, chatbot2],
         )
 
         submit_alt_btn.click(
             submit_sequential,
-            [msg, chatbot1, chatbot2, model1_select, model2_select, temperature, max_tokens],
+            [msg, chatbot1, chatbot2, model1_select, model2_select],
             [msg, chatbot1, chatbot2],
         )
 
