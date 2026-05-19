@@ -19,27 +19,37 @@ from llmrouter.utils import call_api
 # CSS STYLING
 # -----------------------------------------------------------------------------
 CUSTOM_CSS = """
-/* FORCE LIGHT THEME VARIABLES */
+/* MODERN THEME WITH GRADIENT BACKGROUND */
 :root, .gradio-container {
-    --body-background-fill: #f3f4f6;
-    --body-text-color: #0f172a;
-    --background-fill-primary: #ffffff;
-    --background-fill-secondary: #f8fafc;
-    --border-color-primary: #e2e8f0;
-    --block-background-fill: #ffffff;
-    --block-border-color: #e2e8f0;
+    --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --primary-color: #667eea;
+    --primary-hover: #5a67d8;
+    --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    --success-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    --glass-bg: rgba(255, 255, 255, 0.95);
+    --glass-border: rgba(255, 255, 255, 0.2);
+    --shadow-soft: 0 8px 32px -4px rgba(0, 0, 0, 0.1), 0 4px 16px -4px rgba(0, 0, 0, 0.05);
+    --shadow-elevated: 0 20px 40px -8px rgba(102, 126, 234, 0.15);
+    --body-background-fill: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+    --body-text-color: #1a1a2e;
+    --background-fill-primary: rgba(255, 255, 255, 0.95);
+    --background-fill-secondary: rgba(248, 250, 252, 0.9);
+    --border-color-primary: rgba(226, 232, 240, 0.6);
+    --block-background-fill: rgba(255, 255, 255, 0.95);
+    --block-border-color: rgba(226, 232, 240, 0.6);
     --block-label-text-color: #64748b;
-    --block-title-text-color: #1e293b;
-    --input-background-fill: #ffffff;
+    --block-title-text-color: #1a1a2e;
+    --input-background-fill: rgba(255, 255, 255, 0.95);
     --input-border-color: #cbd5e1;
-    --font: 'Inter', system-ui, -apple-system, sans-serif;
+    --font: 'SF Pro Display', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 .gradio-container {
     max-width: 100% !important;
     width: 100% !important;
-    padding: 0 24px !important;
+    padding: 20px 32px !important;
     background: var(--body-background-fill) !important;
+    background-attachment: fixed !important;
 }
 
 /* --- HEADER BAR --- */
@@ -47,66 +57,96 @@ CUSTOM_CSS = """
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 16px 0;
-    margin-bottom: 16px;
-    border-bottom: 1px solid #e5e7eb;
+    padding: 24px 0;
+    margin-bottom: 24px;
+    border: none;
 }
 
 .top-bar h1 {
-    font-size: 1.25rem;
-    font-weight: 600;
-    color: #111827;
+    font-size: 1.75rem;
+    font-weight: 700;
+    background: var(--primary-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
     margin: 0;
-    letter-spacing: -0.025em;
+    letter-spacing: -0.03em;
 }
 
 .status-badge {
-    background: #dbeafe;
-    color: #1e40af;
-    padding: 4px 12px;
-    border-radius: 9999px;
-    font-size: 0.75rem;
-    font-weight: 500;
-    border: 1px solid #bfdbfe;
+    background: var(--primary-gradient);
+    color: white;
+    padding: 8px 20px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border: none;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 /* --- MODEL CARDS --- */
 .model-card {
-    background: #ffffff !important;
-    border: 1px solid #e2e8f0 !important;
-    border-radius: 12px !important;
-    padding: 14px !important;
-    box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.03) !important;
+    background: var(--glass-bg) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border: 1px solid var(--glass-border) !important;
+    border-radius: 20px !important;
+    padding: 20px !important;
+    box-shadow: var(--shadow-soft) !important;
     height: 100%;
     display: flex;
     flex-direction: column;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.model-card:hover {
+    box-shadow: var(--shadow-elevated) !important;
+    transform: translateY(-2px);
 }
 
 .model-card-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 12px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid #f1f5f9;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid rgba(0, 0, 0, 0.04);
 }
 
 .model-card-title {
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: #1e293b;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #1a1a2e;
     margin: 0;
+    letter-spacing: -0.02em;
 }
 
 .model-card-select {
     width: 100%;
+    margin-bottom: 12px;
 }
 
 .model-card-select .label-wrap {
     font-size: 0.75rem !important;
-    font-weight: 500 !important;
-    color: #64748b !important;
-    margin-bottom: 4px !important;
+    font-weight: 600 !important;
+    color: #667eea !important;
+    margin-bottom: 6px !important;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.model-card-select .wrap {
+    border-radius: 12px !important;
+    border: 1.5px solid #e2e8f0 !important;
+    background: rgba(255, 255, 255, 0.8) !important;
+    transition: all 0.2s !important;
+}
+
+.model-card-select .wrap:hover {
+    border-color: #667eea !important;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1) !important;
 }
 
 /* --- CHAT AREA --- */
@@ -119,21 +159,23 @@ CUSTOM_CSS = """
 }
 
 .chat-area .bubble-wrap {
-    background-color: #f8fafc !important;
-    border: 1px solid #e2e8f0 !important;
-    border-radius: 12px !important;
+    background: rgba(255, 255, 255, 0.9) !important;
+    border: 1px solid rgba(226, 232, 240, 0.5) !important;
+    border-radius: 16px !important;
 }
 
 .chat-area .message.user {
-    background-color: #eff6ff !important;
-    border-color: #bfdbfe !important;
-    color: #1e3a8a !important;
+    background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%) !important;
+    border-color: #667eea30 !important;
+    color: #1a1a2e !important;
+    border-radius: 20px !important;
 }
 
 .chat-area .message.assistant {
-    background-color: #ffffff !important;
-    border-color: #e2e8f0 !important;
-    color: #0f172a !important;
+    background: rgba(255, 255, 255, 0.95) !important;
+    border-color: rgba(226, 232, 240, 0.5) !important;
+    color: #1a1a2e !important;
+    border-radius: 20px !important;
 }
 
 /* --- CODE BLOCKS IN CHAT --- */
@@ -141,30 +183,31 @@ CUSTOM_CSS = """
 .chat-area code,
 .message pre,
 .message code {
-    background-color: #f8fafc !important;
-    color: #1e293b !important;
-    border: 1px solid #e2e8f0 !important;
+    background: rgba(248, 250, 252, 0.9) !important;
+    color: #1a1a2e !important;
+    border: 1px solid rgba(226, 232, 240, 0.5) !important;
 }
 
 .chat-area code:not(pre code),
 .message code:not(pre code) {
-    background-color: #f1f5f9 !important;
-    color: #0f172a !important;
-    padding: 2px 6px !important;
-    border-radius: 4px !important;
+    background: linear-gradient(135deg, #f093fb20 0%, #f5576c20 100%) !important;
+    color: #764ba2 !important;
+    padding: 3px 8px !important;
+    border-radius: 6px !important;
     font-size: 0.9em !important;
-    border: 1px solid #e2e8f0 !important;
+    border: none !important;
+    font-weight: 500;
 }
 
 .chat-area pre,
 .message pre {
-    background-color: #f8fafc !important;
-    color: #1e293b !important;
-    border: 1px solid #e2e8f0 !important;
-    border-radius: 8px !important;
-    padding: 12px 16px !important;
+    background: linear-gradient(135deg, rgba(79, 172, 254, 0.08) 0%, rgba(0, 242, 254, 0.08) 100%) !important;
+    color: #1a1a2e !important;
+    border: 1px solid rgba(79, 172, 254, 0.3) !important;
+    border-radius: 12px !important;
+    padding: 16px 20px !important;
     overflow-x: auto !important;
-    margin: 8px 0 !important;
+    margin: 12px 0 !important;
 }
 
 .chat-area pre code,
@@ -172,95 +215,131 @@ CUSTOM_CSS = """
     background-color: transparent !important;
     border: none !important;
     padding: 0 !important;
-    color: #1e293b !important;
+    color: #1a1a2e !important;
 }
 
 /* --- INPUT AREA --- */
 .input-section {
-    background: #ffffff !important;
-    border: 1px solid #e2e8f0 !important;
-    border-radius: 12px !important;
-    padding: 16px !important;
-    box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.03) !important;
-    margin-top: 16px;
+    background: var(--glass-bg) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border: 1px solid var(--glass-border) !important;
+    border-radius: 20px !important;
+    padding: 24px !important;
+    box-shadow: var(--shadow-soft) !important;
+    margin-top: 24px;
 }
 
 .input-row {
     display: flex;
-    gap: 10px;
+    gap: 12px;
     align-items: flex-end;
 }
 
 .input-row textarea {
-    border-radius: 10px !important;
-    padding: 12px !important;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
-    transition: all 0.2s;
+    border-radius: 14px !important;
+    padding: 16px !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04) !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     resize: none;
+    background: rgba(255, 255, 255, 0.8) !important;
+    border: 1.5px solid #e2e8f0 !important;
 }
 
 .input-row textarea:focus {
-    border-color: #3b82f6 !important;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15) !important;
+    border-color: #667eea !important;
+    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15) !important;
+    background: rgba(255, 255, 255, 0.95) !important;
 }
 
 /* --- ACTION BUTTONS --- */
 .action-btns {
     display: flex;
-    gap: 6px;
-    margin-top: 8px;
+    gap: 8px;
+    margin-top: 12px;
 }
-
 
 /* --- MODE 1 COLOR SCHEME --- */
 .model-1 .model-card-header {
-    border-bottom-color: #bfdbfe;
+    border-bottom-color: #667eea;
 }
 
 .model-1 .status-badge {
-    background: #dbeafe;
-    color: #1e40af;
-    border-color: #bfdbfe;
+    background: var(--primary-gradient);
+    border-color: transparent;
 }
 
 /* --- MODE 2 COLOR SCHEME --- */
 .model-2 .model-card-header {
-    border-bottom-color: #d1fae5;
+    border-bottom-color: #f5576c;
 }
 
 .model-2 .status-badge {
-    background: #d1fae5;
-    color: #065f46;
-    border-color: #d1fae5;
-}
-
-input[type=range] {
-    accent-color: #2563eb;
+    background: var(--secondary-gradient);
+    border-color: transparent;
 }
 
 /* --- DROPDOWN --- */
 .wrap {
-    min-height: 36px !important;
+    min-height: 42px !important;
+    border-radius: 12px !important;
+}
+
+/* --- BUTTONS --- */
+button {
+    border-radius: 12px !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
 button.primary {
-    background: #2563eb !important;
-    border-radius: 8px !important;
-    transition: background 0.2s;
-    font-weight: 500 !important;
-    font-size: 0.9rem !important;
+    background: var(--primary-gradient) !important;
+    border-radius: 12px !important;
+    font-weight: 600 !important;
+    font-size: 0.95rem !important;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3) !important;
+    border: none !important;
 }
 
 button.primary:hover {
-    background: #1d4ed8 !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4) !important;
 }
 
 button.secondary {
-    font-weight: 500 !important;
-    font-size: 0.85rem !important;
+    font-weight: 600 !important;
+    font-size: 0.9rem !important;
+    background: rgba(255, 255, 255, 0.9) !important;
+    border: 1.5px solid #e2e8f0 !important;
+}
+
+button.secondary:hover {
+    background: rgba(255, 255, 255, 1) !important;
+    border-color: #667eea !important;
 }
 
 footer { display: none !important; }
+
+/* --- SMOOTH SCROLLING --- */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+}
+
+*::-webkit-scrollbar {
+    width: 8px;
+}
+
+*::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+*::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
 """
 
 
