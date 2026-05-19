@@ -516,11 +516,9 @@ def create_interface(models_info: Dict[str, Any], args):
                         interactive=True,
                     )
                     chatbot1 = gr.Chatbot(
-                        height=320,
-                        show_label=False,
                         elem_classes=["chat-area"],
+                        height=400,
                     )
-                    clear1_btn = gr.Button("Clear", size="sm", variant="secondary")
 
             # 模型 2
             with gr.Column(scale=1, elem_classes=["model-2"]):
@@ -538,11 +536,9 @@ def create_interface(models_info: Dict[str, Any], args):
                         interactive=True,
                     )
                     chatbot2 = gr.Chatbot(
-                        height=320,
-                        show_label=False,
                         elem_classes=["chat-area"],
+                        height=400,
                     )
-                    clear2_btn = gr.Button("Clear", size="sm", variant="secondary")
 
         # 输入区域
         with gr.Row():
@@ -555,12 +551,8 @@ def create_interface(models_info: Dict[str, Any], args):
                         max_lines=10,
                     )
                     with gr.Row(elem_classes=["input-row"]):
-                        submit_btn = gr.Button("Compare", variant="primary", scale=2)
-                        submit_alt_btn = gr.Button("Send Separately", scale=1)
-
-                    with gr.Row(elem_classes=["action-btns"]):
-                        clear_all_btn = gr.Button("Clear All", size="sm")
-                        swap_models_btn = gr.Button("Swap Models", size="sm")
+                        submit_btn = gr.Button("Send", variant="primary", scale=2)
+                        clear_all_btn = gr.Button("Clear", size="sm", scale=1)
 
         # 获取当前选中的模型信息
         def get_model_info(model_key: str) -> Dict[str, Any]:
@@ -606,38 +598,6 @@ def create_interface(models_info: Dict[str, Any], args):
                 new_chat2[-1]["content"] = partial
                 yield "", new_chat1, new_chat2
 
-        # 提交查询 - 分别模式
-        def submit_sequential(message: str, chat1: List[Dict], chat2: List[Dict], model1: str, model2: str):
-            if not message.strip():
-                return "", chat1, chat2
-
-            # 获取模型信息
-            info1 = get_model_info(model1)
-            info2 = get_model_info(model2)
-
-            # 调用两个模型（并行但分别流式输出）
-            response1, response2 = predict_both(message, info1, info2, args.temperature, args.max_tokens)
-
-            # 先显示模型1
-            new_chat1 = chat1 + [{"role": "user", "content": message}, {"role": "assistant", "content": ""}]
-            partial = ""
-            for char in response1:
-                partial += char
-                new_chat1[-1]["content"] = partial
-                yield "", new_chat1, chat2
-
-            # 再显示模型2
-            new_chat2 = chat2 + [{"role": "user", "content": message}, {"role": "assistant", "content": ""}]
-            partial = ""
-            for char in response2:
-                partial += char
-                new_chat2[-1]["content"] = partial
-                yield "", new_chat1, new_chat2
-
-        # 交换模型选择
-        def swap_models(model1: str, model2: str):
-            return model2, model1
-
         # 清除聊天框
         def clear_chat():
             return []
@@ -649,17 +609,7 @@ def create_interface(models_info: Dict[str, Any], args):
             [msg, chatbot1, chatbot2],
         )
 
-        submit_alt_btn.click(
-            submit_sequential,
-            [msg, chatbot1, chatbot2, model1_select, model2_select],
-            [msg, chatbot1, chatbot2],
-        )
-
-        clear1_btn.click(clear_chat, None, chatbot1)
-        clear2_btn.click(clear_chat, None, chatbot2)
         clear_all_btn.click(lambda: ([], []), None, [chatbot1, chatbot2])
-
-        swap_models_btn.click(swap_models, [model1_select, model2_select], [model1_select, model2_select])
 
     return demo
 
